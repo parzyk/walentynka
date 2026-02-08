@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Walentynkowe Pytanie</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: linear-gradient(180deg,#fff7fb,#fff0f6);
+      color: #222;
+    }
+    h1 { font-size: 1.1rem; line-height: 1.4; }
+    #question-container { display: none; margin-top: 20px; }
+    .hidden { display: none; }
+    .radio-row { margin: 8px 0; }
+    #other-answer input { width: 100%; padding: 8px; box-sizing: border-box; }
+    input[type="submit"] { padding: 10px 16px; background:#ff6b9a; color:#fff; border:0; border-radius:6px; cursor:pointer; font-weight:700; }
+    input[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
+    /* Modal */
+    .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center; z-index:1000; }
+    .modal { background:#fff; padding:18px; border-radius:10px; width:90%; max-width:360px; text-align:center; box-shadow:0 8px 24px rgba(0,0,0,0.2); }
+    .modal button { padding:8px 12px; margin:8px; border-radius:8px; border:0; cursor:pointer; font-weight:700; }
+    .btn-yes { background:#ff6b9a; color:#fff; }
+    .btn-no { background:#eee; color:#333; }
+    .sr-only { position:absolute; left:-10000px; top:auto; width:1px; height:1px; overflow:hidden; }
+  </style>
+</head>
+<body>
+  <h1>
+    Hejo Słonko. Chciałbym, naprawdę cię kocham całym serduszkiem, nic lepszego nie mogło się wydarzyć jak poznanie ciebie.
+    Nawet nie zdajesz sobie sprawy, jak bardzo jestem przy tobie szczęśliwa. Wiem, że nie zawsze jest ze mną łatwo i czasami cię ranię,
+    nie zdając sobie z tego sprawy, ale mimo to, nadal Olciu KOCHAM CIĘ bezgranicznie i chcę być już z tobą na zawsze, na dobre i na złe,
+    i mam bardzo ważne pytanie <span id="heart" style="cursor:pointer; color:red;" role="button" aria-label="Otwórz pytanie">❤️</span>
+  </h1>
+
+  <div id="question-container" aria-hidden="true">
+    <h2>Czy zostaniesz moją walentynką?</h2>
+
+    <!-- Formularz wysyłany do Formspree (możesz zmienić action) -->
+    <form id="valentineForm" action="https://formspree.io/f/mqkzjbbp" method="POST" novalidate>
+      <p class="sr-only">Wybierz jedną z odpowiedzi</p>
+
+      <div class="radio-row">
+        <input type="radio" id="yes" name="answer" value="Tak💋❤️">
+        <label for="yes">Tak💋❤️</label>
+      </div>
+
+      <div class="radio-row">
+        <input type="radio" id="no" name="answer" value="Nie😭💔">
+        <label for="no">Nie😭💔</label>
+      </div>
+
+      <div class="radio-row">
+        <input type="radio" id="other" name="answer" value="Inna odpowiedź">
+        <label for="other">Inna</label>
+      </div>
+
+      <div id="other-answer" class="hidden" aria-hidden="true">
+        <label for="custom-answer">Podaj swoją odpowiedź:</label><br>
+        <input type="text" id="custom-answer" name="custom-answer" autocomplete="off" placeholder="Twoja odpowiedź">
+      </div>
+
+      <!-- Ukryte pole, do którego skopiujemy finalną odpowiedź przed wysłaniem -->
+      <input type="hidden" id="final-answer" name="final-answer" value="">
+
+      <br>
+      <input type="submit" id="submitBtn" value="Wyślij odpowiedź">
+    </form>
+  </div>
+
+  <!-- Modal dla "Nie" -->
+  <div id="modalWrap" class="hidden" aria-hidden="true">
+    <div class="modal-backdrop" id="backdrop">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <p id="modalTitle" style="font-weight:700; color:#c2185b;">Czy na pewno nie zmienisz zdania?</p>
+        <div>
+          <button id="confirmNo" class="btn-no">Tak, na pewno</button>
+          <button id="changeMind" class="btn-yes">Zmień zdanie</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const heart = document.getElementById('heart');
+    const questionContainer = document.getElementById('question-container');
+    const otherRadio = document.getElementById('other');
+    const otherAnswer = document.getElementById('other-answer');
+    const customAnswer = document.getElementById('custom-answer');
+    const yesNoRadios = document.querySelectorAll('input[name="answer"]');
+    const form = document.getElementById('valentineForm');
+    const finalAnswer = document.getElementById('final-answer');
+    const submitBtn = document.getElementById('submitBtn');
+
+    const modalWrap = document.getElementById('modalWrap');
+    const confirmNo = document.getElementById('confirmNo');
+    const changeMind = document.getElementById('changeMind');
+    const backdrop = document.getElementById('backdrop');
+
+    let askTimer = null;
+
+    // Pokaż pytanie po kliknięciu serduszka
+    heart.addEventListener('click', () => {
+      questionContainer.style.display = 'block';
+      questionContainer.setAttribute('aria-hidden', 'false');
+      heart.setAttribute('aria-expanded', 'true');
+      // przewiń do formularza (opcjonalnie)
+      questionContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+
+    // Pokaż/ukryj pole "Inna odpowiedź"
+    function updateOtherField() {
+      if (otherRadio.checked) {
+        otherAnswer.classList.remove('hidden');
+        otherAnswer.setAttribute('aria-hidden', 'false');
+        customAnswer.focus();
+      } else {
+        otherAnswer.classList.add('hidden');
+        otherAnswer.setAttribute('aria-hidden', 'true');
+      }
+    }
+
+    otherRadio.addEventListener('change', updateOtherField);
+    yesNoRadios.forEach(r => r.addEventListener('change', updateOtherField));
+
+    // Obsługa wyboru "Nie" - pokazuj modal cyklicznie dopóki nie zmieni zdania
+    document.getElementById('no').addEventListener('change', () => {
+      showModal();
+      if (!askTimer) {
+        askTimer = setInterval(() => {
+          showModal();
+        }, 2500); // co 2.5 sekundy przypomnienie
+      }
+    });
+
+    function showModal() {
+      modalWrap.classList.remove('hidden');
+      modalWrap.setAttribute('aria-hidden', 'false');
+    }
+
+    function hideModal() {
+      modalWrap.classList.add('hidden');
+      modalWrap.setAttribute('aria-hidden', 'true');
+    }
+
+    // Potwierdzenie "Tak, na pewno" - modal zamknięty, timer dalej pyta (zgodnie z Twoim opisem)
+    confirmNo.addEventListener('click', () => {
+      hideModal();
+      // pokaż krótki komunikat wizualny (opcjonalne)
+      if (!document.getElementById('sad-note')) {
+        const note = document.createElement('div');
+        note.id = 'sad-note';
+        note.style.color = '#666';
+        note.style.marginTop = '12px';
+        note.style.fontWeight = '600';
+        note.textContent = 'Szkoda... nadal będę pytać.';
+        questionContainer.appendChild(note);
+      }
+      // modal zostaje ukryty tymczasowo, ale timer może go ponownie pokazać
+    });
+
+    // Zmiana zdania - pokaż misia zamiast formularza i zatrzymaj timer
+    changeMind.addEventListener('click', () => {
+      hideModal();
+      stopAsking();
+      showTeddy();
+    });
+
+    // Kliknięcie poza modal zamyka go tymczasowo
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) {
+        hideModal();
+      }
+    });
+
+    function stopAsking() {
+      if (askTimer) {
+        clearInterval(askTimer);
+        askTimer = null;
+      }
+    }
+
+    // Prosta funkcja pokazująca misia (możesz podmienić na obrazek/SVG)
+    function showTeddy() {
+      // Usuń formularz i pokaż miłego misia
+      questionContainer.innerHTML = `
+        <div style="text-align:center; padding:18px;">
+          <svg width="220" height="220" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Pluszowy miś z serduszkiem">
+            <defs>
+              <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+                <stop offset="0" stop-color="#ffd9c9"/>
+                <stop offset="1" stop-color="#ffb3a1"/>
+              </linearGradient>
+            </defs>
+            <circle cx="55" cy="45" r="28" fill="url(#g)"/>
+            <circle cx="145" cy="45" r="28" fill="url(#g)"/>
+            <circle cx="100" cy="80" r="48" fill="url(#g)"/>
+            <circle cx="85" cy="75" r="6" fill="#4b2e2e"/>
+            <circle cx="115" cy="75" r="6" fill="#4b2e2e"/>
+            <ellipse cx="100" cy="92" rx="8" ry="6" fill="#4b2e2e"/>
+            <ellipse cx="100" cy="140" rx="60" ry="48" fill="url(#g)"/>
+            <g transform="translate(100,120) scale(0.9)">
+              <path d="M0 -10 C -12 -30 -40 -20 -40 0 C -40 22 -10 36 0 48 C 10 36 40 22 40 0 C 40 -20 12 -30 0 -10 Z" fill="#ff4d6d"/>
+            </g>
+          </svg>
+          <div style="margin-top:8px; color:#c2185b; font-weight:700;">Tak! Będę Twoją walentynką 💖</div>
+        </div>
+      `;
+    }
+
+    // Przed wysłaniem formularza skomponuj finalną odpowiedź i waliduj
+    form.addEventListener('submit', (e) => {
+      // Znajdź wybraną opcję
+      const chosen = document.querySelector('input[name="answer"]:checked');
+      if (!chosen) {
+        e.preventDefault();
+        alert('Proszę wybrać odpowiedź przed wysłaniem.');
+        return;
+      }
+
+      let answerText = chosen.value;
+      if (chosen.id === 'other') {
+        const custom = customAnswer.value.trim();
+        if (!custom) {
+          e.preventDefault();
+          alert('Proszę wpisać swoją odpowiedź w polu "Inna".');
+          customAnswer.focus();
+          return;
+        }
+        answerText = `Inna: ${custom}`;
+      }
+
+      // Skopiuj do ukrytego pola, aby wysłać jedną czytelną wartość
+      finalAnswer.value = answerText;
+
+      // Jeśli chcesz, możesz też zatrzymać cykliczne przypomnienia (bezpieczne)
+      stopAsking();
+
+      // Formularz zostanie wysłany normalnie do action
+      // Jeśli chcesz wysyłać AJAX-em, zastąp poniższe zachowanie.
+    });
+
+    // Dodatkowo: jeśli użytkownik wybierze "Tak", zatrzymaj przypominanie i pokaż misia
+    document.getElementById('yes').addEventListener('change', () => {
+      stopAsking();
+      showTeddy();
+    });
+
+    // Jeśli użytkownik wpisze coś w pole "Inna", automatycznie zaznacz radio "Inna"
+    customAnswer.addEventListener('input', () => {
+      if (customAnswer.value.trim().length > 0) {
+        otherRadio.checked = true;
+        updateOtherField();
+      }
+    });
+  </script>
+</body>
+</html>
